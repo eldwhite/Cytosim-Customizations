@@ -1,0 +1,108 @@
+Bootstrap: debootstrap
+OSVersion: xenial
+MirrorURL:  http://us.archive.ubuntu.com/ubuntu/
+
+Include: sudo
+Include: git
+
+%setup
+	mkdir ${SINGULARITY_ROOTFS}/home/cytosim
+
+%files
+	#simul_report.cc /mnt
+	makefile.inc /mnt
+    
+	my_treadmilling_fiber.cc /mnt
+	my_treadmilling_fiber.h /mnt
+	my_treadmilling_fiber_prop.cc /mnt
+	my_treadmilling_fiber_prop.h /mnt
+ 
+ 
+	fiber_set.cc /mnt
+
+
+%runscript
+	echo "To run cytosim, use: singularity exec cytosim.sif /home/cytosim/bin/<cytosim-command>"
+
+%post
+	### Set up the Arch Linux distro ###'
+    
+ 
+	# Set time zone. Use whatever you prefer instead of UTC.
+	# ln -s /usr/share/zoneinfo/UTC /etc/localtime
+
+	# Set locale. Use whatever you prefer instead of en_US.
+	#echo 'en_US.UTF-8 UTF-8' > /etc/locale.gen
+	#locale-gen
+	#echo 'LANG=en_US.UTF-8' > /etc/locale.conf
+
+	# Set the package mirror server(s)
+	#echo 'Server = https://mirrors.kernel.org/archlinux/$repo/os/$arch' > #/etc/pacman.d/mirrorlist
+	# Add any number of fail-over servers, eg:
+	#echo 'Server = https://archlinux.honkgong.info/$repo/os/$arch' >> #/etc/pacman.d/mirrorlist
+
+	### Begin Cytosim compilation stuff ###
+
+	# Install required/helpful packages
+    	apt install --assume-yes wget
+    	apt install --assume-yes git
+    	apt install --assume-yes make
+    	apt-get install --assume-yes sudo
+	sudo apt-get install --assume-yes vim 
+	sudo apt-get install --assume-yes bash-completion
+    	sudo apt-get install --assume-yes make g++
+	sudo apt-get install --assume-yes zlib1g-dev
+	#sudo apt-get install --assume-yes xorg
+    	sudo apt-get install --assume-yes libblas-dev liblapack-dev libglew-dev
+   	sudo apt install --assume-yes build-essential
+    	sudo apt-get install --assume-yes manpages-dev libpng-dev xauth
+    	sudo apt-get install --assume-yes libglu1-mesa-dev mesa-common-dev
+    	sudo apt-get install --assume-yes libgl1-mesa-dev 
+	sudo apt-get install --assume-yes libgles1-mesa-dev libgles2-mesa-dev
+	#sudo apt-get install --assume-yes -f freeglut3-dev
+    
+    gcc --version
+
+	#sudo which wget git make blas gcc lapack glew freeglut zlib xorg-xauth
+
+	# Install libpng
+	cd /home
+	wget https://sourceforge.net/projects/libpng/files/libpng16/1.6.37/libpng-1.6.37.tar.gz
+	tar -xzf libpng-1.6.37.tar.gz
+	rm libpng-1.6.37.tar.gz	
+	cd libpng-1.6.37
+
+	./configure --prefix=/usr
+	make check -j4
+	make install -j4
+
+	# Clone Cytosim source code
+	git clone https://gitlab.com/f.nedelec/cytosim.git /home/cytosim
+	cd /home/cytosim
+	
+	# Use the version from 24 Nov 2020
+	git checkout 19af17eda6f3c6b5fdfdff255fa974c6a69d5154
+ 
+	
+	# Replace a couple of the source code files with those containing necessary modifications
+	
+	mv /mnt/my_treadmilling_fiber.cc /home/cytosim/src/sim/fibers
+	mv /mnt/my_treadmilling_fiber.h /home/cytosim/src/sim/fibers
+	mv /mnt/my_treadmilling_fiber_prop.cc /home/cytosim/src/sim/fibers
+	mv /mnt/my_treadmilling_fiber_prop.h /home/cytosim/src/sim/fibers
+	
+	mv /mnt/fiber_set.cc 	/home/cytosim/src/sim
+	mv /mnt/makefile.inc 	/home/cytosim/src/sim
+
+	# Compilation process
+	make sim -j4
+	#make play -j4
+	make frametool -j4
+	make report -j4
+	
+	### Cleanup (to make the image more compact)
+
+	# Remove the packages downloaded to images Pacman cache dir.
+	#pacman -Sy --noconfirm pacman-contrib
+	#paccache -r -k0
+
