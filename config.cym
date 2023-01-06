@@ -1,0 +1,155 @@
+%Example Configuration File 
+%Used for Figure 3.E-H
+
+
+%STEP ONE: DEFINE SYSTEM AND ITS COMPONENTS
+set simul system 
+{ 
+	time_step =0.001
+	viscosity = 1
+	display = (back_color=black;)
+}
+
+
+set space cell { shape = periodic } 
+
+new cell
+{
+	length = 32, 20
+}
+
+
+
+%Define properties of actin  
+set fiber actin
+{ 
+	rigidity = 0.075
+	segmentation = 0.2
+
+	activity = my_treadmill 
+	growing_speed = 1.5, 0.0
+	shrinking_speed = -0.0, -1.5
+	growing_force = 3.0, 3.0 
+
+	display = { line_width=4; color=green;}
+} 
+
+
+%Define properties of crosslinkers  
+set hand binder
+{
+	binding_rate = 60
+	unbinding_rate = 0.05
+	binding_range = 0.01
+	display = (color=cyan; size=4;)
+}
+
+set couple crosslinker 
+{
+	hand1 = binder
+	hand2 = binder
+	diffusion = 10
+	stiffness = 250
+}	
+
+%Define properties of motors  
+set hand motor
+{ 
+	binding_rate = 5
+	unbinding_rate = 0.15
+	binding_range = 0.01
+	stall_force = 45	
+
+	activity = move
+	unloaded_speed = 0.3
+
+	display = (color=red; size=4; ) 
+}
+
+set couple myosin
+{ 
+	hand1 = motor
+	hand2 = motor
+	diffusion = 10
+	stiffness = 250
+} 
+
+
+
+%STEP TWO: ADD COMPONENTS AND INITIALIZE SYSTEM 
+
+%Begin by adding actin 
+new 10 actin
+{
+	length = 0.05
+	end_state = 1, 0
+} 
+
+%Add actin at characteristic nucleation rate to achieve ideal actin density
+new event
+{ 
+	rate = 121
+	code = (new 1 actin { length = 0.05; end_state = 1, 0});
+}
+
+run 25000 simul * {solve = 1} 
+
+%Add the binders and let them initialize 
+new 44500 crosslinker 
+new 1440 myosin
+new 160 myosin(stripe -5 5)
+
+run 5000 simul * {solve = 0} 
+
+%Incorporate turnover of crosslinkers and myosin in system 
+new event
+{ 
+	rate = 50 
+	code = (new 1 crosslinker);
+} 
+
+new event 
+{ 
+	rate = 50 
+	code = (delete 1 crosslinker);
+} 
+
+%Myosin being added everywhere 
+new event
+{ 
+	rate = 30 
+	code = (new 1 myosin); 
+} 
+
+%And extra in the stripe
+new event
+{
+	rate = 180
+	code = (new 1 myosin(stripe -5 5)); 
+} 
+
+%And deleted everywhere 
+new event
+{ 
+	rate = 30 
+	code = (delete 1 myosin); 
+} 
+
+new event
+{
+	rate = 180
+	code = (delete 1 myosin); 
+} 
+
+%STEP THREE: RUN SIMULATION AND REPORT OUTPUTS
+repeat 60 
+{ 
+	run 1000 system { nb_frames = 1} 
+
+	report fiber:points 		fiber_points.txt
+	report fiber:ends 		fiber_ends.txt
+	report fiber:lengths		fiber_lengths.txt
+	report couple: myosin		myosin.txt
+	report couple: crosslinker 	crosslinker.txt
+} 
+
